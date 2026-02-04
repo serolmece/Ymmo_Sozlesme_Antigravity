@@ -130,17 +130,20 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
         const calculatedFee = parseFloat(Number(formData.UtKararlastirilanUcret).toFixed(2));
         const enteredFee = parseFloat(Number(formData.SozlesmeUcreti).toFixed(2));
 
-        // Check if calculatedFee is a valid number > 0
+        // 1. Check for Empty/Zero Fee (Strict Block)
+        // "buradaki ücret kısmı 0 olmasın yada boş bırakılmaya izin vermesin"
+        if (isNaN(enteredFee) || enteredFee <= 0) {
+            alert('Sözleşmede Belirtilen Ücret (KDV DAHİL) 0 olamaz veya boş bırakılamaz.');
+            return;
+        }
+
+        // 2. Check calculation comparison
         if (!isNaN(calculatedFee) && calculatedFee > 0) {
-            // We have a base fee to compare against
-            // Check if enteredFee is valid
-            if (!isNaN(enteredFee)) {
-                // Check if entered fee is strictly less than calculated fee
-                // We allow if they are equal (>=)
-                if (enteredFee < calculatedFee) {
-                    alert(`Sözleşme Ücreti (${formatCurrency(enteredFee)} TL), Hesaplanan Kararlaştırılan Ücret'ten (${formatCurrency(calculatedFee)} TL) düşük olamaz!`);
-                    return; // Stop saving
-                }
+            // Check if entered fee is strictly less than calculated fee
+            if (enteredFee < calculatedFee) {
+                // Warning only, do not return
+                // "Girdiğiniz ücret Asgari Tarifeye Göre Hesaplanan Ücret'den düşüktür, tarifeden düşük girilen ücretler raporlanarak Yönetim Kurulunda incelenecektir."
+                alert("Girdiğiniz ücret Asgari Tarifeye Göre Hesaplanan Ücret'den düşüktür, tarifeden düşük girilen ücretler raporlanarak Yönetim Kurulunda incelenecektir.");
             }
         }
 
