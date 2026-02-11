@@ -199,7 +199,7 @@ app.get('/api/sozlesmeler', async (req, res) => {
         } else if (type === 'hizmet') {
             whereClause += " AND SozlesmeTuru LIKE N'%HİZMET%'";
         } else if (type === 'diger') {
-            whereClause += " AND SozlesmeTuru LIKE N'%DİĞER%'";
+            whereClause += " AND (SozlesmeTuru NOT IN (N'SÜRESİNDE', N'FESİH', N'FESHEDİLEN') AND SozlesmeTuru NOT LIKE N'%SONRASI%' AND SozlesmeTuru NOT LIKE N'%KDV İADE%' AND SozlesmeTuru NOT LIKE N'%HİZMET%')";
         }
 
         // Year Filter
@@ -230,7 +230,7 @@ app.get('/api/sozlesmeler', async (req, res) => {
                 UtFaaliyetTuruZammi, UtSmVeyaSmmmIndirimi, UtGrupSirketleriIndirimi, UtKararlastirilanUcret,
                 UtFirmaUnvan, UtAdres, UtVergiDairesi, UtVergiNo, UtMuhSorumluAdSoyad, UtMuhSorumluRuhsatNo,
                 UtSektorIndirimi, UtSozlesmeHesaplamaDurumu, UtGrupSirketUnvan, UtGrupSirketVergiNo,
-                Id
+                Id, CreatedAt, CreatedBy
             FROM dbo.Sozlesme
             ${whereClause}
             ORDER BY Id DESC

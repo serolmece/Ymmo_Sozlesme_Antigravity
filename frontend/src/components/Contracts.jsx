@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Lock, Eye } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2, Lock, Eye, Download } from 'lucide-react';
 import ContractModal from './ContractModal';
 
 const Contracts = () => {
@@ -84,6 +85,33 @@ const Contracts = () => {
         }
     };
 
+    const handleExportExcel = () => {
+        const headers = [
+            "Karşı Şirket",
+            "Vergi No",
+            "Sözleşme Sayı No",
+            "Ücret",
+            "Sözleşme Türü",
+            "Ekleyen",
+            "Eklenme Tarihi"
+        ];
+
+        const data = contracts.map(contract => [
+            contract.KarsiSirketAdi,
+            contract.KarsiSirketVergiKimlikNo,
+            contract.SayiNo,
+            contract.SozlesmeUcreti,
+            contract.SozlesmeTuru,
+            contract.CreatedBy || '-',
+            contract.CreatedAt ? new Date(contract.CreatedAt).toLocaleDateString('tr-TR') : '-'
+        ]);
+
+        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Sözleşmeler");
+        XLSX.writeFile(workbook, "Sozlesmeler.xlsx");
+    };
+
     const handleCreate = () => {
         if (isLocked) {
             alert("Süresinde sözleşme ekleme işlemi şu an kilitlidir.");
@@ -99,6 +127,29 @@ const Contracts = () => {
             alert("Süresinde sözleşme güncelleme işlemi şu an kilitlidir.");
             return;
         }
+
+        // KDV İadesi Edit Restriction
+        // "Aynı zamanda aynı sözleşmeler için içinde bulunduğumuz yıl ve 1 önceki yıl için kaydetme ve değiştirme imkanını aktif edelim"
+        // Implies older years are NOT active for editing.
+        const isKdvIade = contract.SozlesmeTuru === 'KDV İADESİ' || type === 'kdv-iade';
+        if (isKdvIade) {
+            const contractYear = contract.Yil || selectedYear; // Fallback to selectedYear if Yil missing
+            const minAllowedYear = currentYear - 1;
+            if (contractYear < minAllowedYear) {
+                alert(`KDV İadesi sözleşmelerinde sadece ${currentYear} ve ${currentYear - 1} yılları için düzenleme yapılabilir.`);
+                return;
+            }
+        }
+
+        // Diğer Sözleşmeler Edit Restriction
+        if (type === 'diger') {
+            const contractYear = contract.Yil || selectedYear;
+            if (contractYear < currentYear) {
+                alert('Geçmiş yıllara ait diğer sözleşmeler düzenlenemez.');
+                return;
+            }
+        }
+
         setEditingContract(contract);
         setIsReadOnly(false);
         setIsModalOpen(true);
@@ -111,6 +162,18 @@ const Contracts = () => {
     };
 
     const handleDelete = async (id) => {
+        // Global Check: Prevent deletion of past year contracts
+        // "tüm sözleşmelerde geçmiş yıllara ait sözleşmeler silinemesin"
+        // We use selectedYear because the list is filtered by it. Or we need the specific contract's year.
+        // Since we only have ID here, we rely on the list's context or we need to find the contract.
+        const contractToDelete = contracts.find(c => c.Id === id);
+        const contractYear = contractToDelete ? contractToDelete.Yil : selectedYear;
+
+        if (contractYear < currentYear) {
+            alert('Geçmiş yıllara ait sözleşmeler silinemez.');
+            return;
+        }
+
         if (isLocked) {
             alert("Süresinde sözleşme silme işlemi şu an kilitlidir.");
             return;
@@ -185,6 +248,15 @@ const Contracts = () => {
                     </select>
 
                     <button
+                        onClick={handleExportExcel}
+                        className="flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition shadow-lg bg-green-600 text-white hover:bg-green-700 shadow-green-200"
+                        title="Excel'e Aktar"
+                    >
+                        <Download size={20} />
+                        <span>Excel</span>
+                    </button>
+
+                    <button
                         onClick={handleCreate}
                         disabled={isLocked}
                         className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition shadow-lg 
@@ -225,10 +297,11 @@ const Contracts = () => {
                                 <th className="p-4 font-semibold text-gray-600 text-center w-28">İşlemler</th>
                                 <th className="p-4 font-semibold text-gray-600">Karşı Şirket</th>
                                 <th className="p-4 font-semibold text-gray-600">Vergi No</th>
-                                <th className="p-4 font-semibold text-gray-600">Mahiyet</th>
-                                <th className="p-4 font-semibold text-gray-600">Sözleşme No</th>
+                                <th className="p-4 font-semibold text-gray-600">Sözleşme Sayı No</th>
                                 <th className="p-4 font-semibold text-gray-600">Ücret</th>
                                 <th className="p-4 font-semibold text-gray-600">Sözleşme Türü</th>
+                                <th className="p-4 font-semibold text-gray-600">Ekleyen</th>
+                                <th className="p-4 font-semibold text-gray-600">Eklenme Tarihi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -261,12 +334,7 @@ const Contracts = () => {
                                     </td>
                                     <td className="p-4 font-medium text-gray-800">{contract.KarsiSirketAdi}</td>
                                     <td className="p-4 text-gray-600">{contract.KarsiSirketVergiKimlikNo}</td>
-                                    <td className="p-4 text-gray-600">
-                                        <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-semibold">
-                                            {contract.Mahiyet}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-gray-600">{contract.SozlesmeNo || '-'}</td>
+                                    <td className="p-4 text-gray-600">{contract.SayiNo || '-'}</td>
                                     <td className="p-4 text-gray-800 font-medium">
                                         {contract.SozlesmeUcreti ?
                                             new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(contract.SozlesmeUcreti)
@@ -278,6 +346,12 @@ const Contracts = () => {
                                                 contract.SozlesmeTuru?.includes('FESHEDİLEN') ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
                                             {contract.SozlesmeTuru}
                                         </span>
+                                    </td>
+                                    <td className="p-4 text-gray-600 text-sm">
+                                        {contract.CreatedBy || '-'}
+                                    </td>
+                                    <td className="p-4 text-gray-600 text-sm">
+                                        {contract.CreatedAt ? new Date(contract.CreatedAt).toLocaleDateString('tr-TR') : '-'}
                                     </td>
                                 </tr>
                             ))}

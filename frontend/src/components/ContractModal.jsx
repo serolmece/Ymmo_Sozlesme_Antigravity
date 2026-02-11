@@ -30,7 +30,7 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                 case 'feshedilen': return 'FESİH';
                 case 'kdv-iade': return 'KDV İADESİ';
                 case 'hizmet': return 'HİZMET SÖZLEŞMELERİ';
-                case 'diger': return 'DİĞER SÖZLEŞME';
+                case 'diger': return 'DİĞER';
                 default: return 'SÜRESİNDE';
             }
         };
@@ -345,6 +345,19 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                                                 className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-500"
                                             />
                                         </div>
+
+                                        {/* KDV İadesi Bitiş Tarihi */}
+                                        {formData.SozlesmeTuru === 'KDV İADESİ' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
+                                                <input
+                                                    type="date" name="SozlesmeBitisTarihi"
+                                                    disabled={readOnly}
+                                                    value={formData.SozlesmeBitisTarihi ? formData.SozlesmeBitisTarihi.split('T')[0] : ''} onChange={handleChange}
+                                                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-500"
+                                                />
+                                            </div>
+                                        )}
 
                                     </div>
                                 </div>
