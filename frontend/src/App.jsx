@@ -4,6 +4,8 @@ import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import Layout from './components/Layout';
 import Contracts from './components/Contracts';
+import ReportingLogin from './components/ReportingLogin';
+import ReportingDashboard from './components/ReportingDashboard';
 
 function App() {
     const [user, setUser] = useState(null);
@@ -29,6 +31,11 @@ function App() {
                     <Route path="/" element={<Dashboard user={user} onLogout={handleLogout} />} />
                     <Route path="/contracts/:type" element={<Contracts />} />
                 </Route>
+
+
+                {/* Reporting Routes */}
+                <Route path="/raporlama" element={<ReportingLogin />} />
+                <Route path="/raporlama/dashboard" element={<ReportingDashboard />} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" />} />

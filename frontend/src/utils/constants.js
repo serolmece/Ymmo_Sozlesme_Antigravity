@@ -153,3 +153,33 @@ export const Cities = [
     { code: 67, name: 'Zonguldak' }
 ];
 
+export const DigerSozlesmeTurleri = [
+    "AB FONLARI",
+    "BAĞIMSIZ DENETİM",
+    "BANKALAR KANUNU",
+    "DEVİR,BİRLEŞME,NEVİ DEĞİŞİKLİĞİ",
+    "DİĞER",
+    "DİİB",
+    "GÖZETİM KAPSAMINDAKİ ÜRÜNLER",
+    "HESAP DURUMU BELGE",
+    "İÇ DENETİM",
+    "İNDİRİMLİ ORAN K.V",
+    "KALKINMA AJANSI",
+    "KOBİ BEYANNAMESİ",
+    "KURUMLAR VERGİSİ",
+    "MALİ DEĞERLENDİRME",
+    "ONAYLANMIŞ KİŞİ STATÜSÜ",
+    "ORGANİZE SANAYİ BÖLGESİ",
+    "ÖTV",
+    "ÖZEL AMAÇLI",
+    "ÖZEL HESAP",
+    "ÖZEL HESAP DÖNEMİ",
+    "RTÜK PAYI TESPİT",
+    "SERBEST BÖLGE",
+    "SERMAYE ÖDENMESİ",
+    "TARIMSAL ÜRETİCİ BİRLİKLERİ",
+    "TEŞVİK BELGESİ KAPANIŞ",
+    "TÜBİTAK",
+    "VAKIF",
+    "YATIRIM İNDİRİMİ"
+];

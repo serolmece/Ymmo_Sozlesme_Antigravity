@@ -1,47 +1,40 @@
+
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Mail, Lock, User, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Lock, ShieldCheck, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const LoginPage = ({ onLoginSuccess }) => {
-    const [email, setEmail] = useState('');
+const ReportingLogin = () => {
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setError(null);
         setLoading(true);
-        setError('');
 
         try {
-            console.log("Sending login request...", { email, password });
-            const response = await axios.post('/api/login', {
-                email,
-                password
-            });
-
-            console.log("Login response:", response.data);
-
+            const response = await axios.post('/api/admin/login', { username, password });
             if (response.data.success) {
-                onLoginSuccess(response.data.user);
+                // Store admin session
+                localStorage.setItem('adminUser', JSON.stringify(response.data.user));
+                navigate('/raporlama/dashboard');
+            } else {
+                setError(response.data.message);
             }
         } catch (err) {
-            console.error("Login component error:", err);
-            if (err.response) {
-                console.error("Error Response Data:", err.response.data);
-                console.error("Error Response Status:", err.response.status);
-            }
-            const errorMessage = err.response?.data?.message || err.message || 'Giriş başarısız oldu. Sunucu hatası olabilir.';
-            setError(errorMessage);
+            setError(err.response?.data?.message || 'Giriş yapılamadı. Sunucu hatası.');
         } finally {
             setLoading(false);
         }
     };
 
-
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800">
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -50,23 +43,23 @@ const LoginPage = ({ onLoginSuccess }) => {
             >
                 <div className="text-center mb-8">
                     <div className="inline-block p-3 bg-white/20 rounded-full mb-4">
-                        <ShieldCheck className="w-10 h-10 text-white" />
+                        <BarChart3 className="w-10 h-10 text-white" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white">Giriş Yap</h1>
-                    <p className="text-gray-200 mt-2">Hesabınıza erişmek için bilgilerinizi girin</p>
+                    <h1 className="text-3xl font-bold text-white">Raporlama Paneli</h1>
+                    <p className="text-gray-200 mt-2">Yönetici girişi yapın</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-1">Email Adresi</label>
+                        <label className="block text-sm font-medium text-gray-200 mb-1">Kullanıcı Adı</label>
                         <div className="relative">
-                            <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                            <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                             <input
                                 type="text"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 text-white placeholder-gray-400 font-medium"
-                                placeholder="ornek@email.com"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 text-white placeholder-gray-400 font-medium"
+                                placeholder="Kullanıcı Adı"
                                 required
                             />
                         </div>
@@ -80,7 +73,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 text-white placeholder-gray-400 font-medium"
+                                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 text-white placeholder-gray-400 font-medium"
                                 placeholder="••••••••"
                                 required
                             />
@@ -98,19 +91,18 @@ const LoginPage = ({ onLoginSuccess }) => {
                         whileTap={{ scale: 0.98 }}
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 px-4 bg-white text-purple-600 font-bold rounded-xl shadow-lg hover:bg-gray-50 transition duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="w-full py-3 px-4 bg-white text-blue-900 font-bold rounded-xl shadow-lg hover:bg-gray-50 transition duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
                     </motion.button>
                 </form>
 
-                {/* <div className="mt-6 text-center">
-                    <a href="#" className="text-sm text-gray-300 hover:text-white transition">Şifremi Unuttum?</a>
-
-                </div> */}
+                <div className="mt-6 text-center text-sm text-white/60">
+                    <p>Sadece yetkili personel içindir.</p>
+                </div>
             </motion.div>
         </div>
     );
 };
 
-export default LoginPage;
+export default ReportingLogin;

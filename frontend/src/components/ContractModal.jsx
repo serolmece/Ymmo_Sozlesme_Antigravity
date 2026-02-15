@@ -6,9 +6,22 @@ import {
     UtFaaliyetTuru, UtFaaliyetTuruLabel,
     UtVergiTuru, UtVergiTuruLabel,
     UtIndirimSecimi, UtIndirimSecimiLabel,
-    Cities
+    Cities,
+    DigerSozlesmeTurleri
 } from '../utils/constants';
 import { calculateContractFee } from '../utils/feeCalculation';
+
+const getContractType = (urlType) => {
+    switch (urlType) {
+        case 'suresinde': return 'SÜRESİNDE';
+        case 'sure-sonrasi': return 'SÜRE SONRASI';
+        case 'feshedilen': return 'FESİH';
+        case 'kdv-iade': return 'KDV İADESİ';
+        case 'hizmet': return 'HİZMET SÖZLEŞMELERİ';
+        case 'diger': return 'DİĞER';
+        default: return 'SÜRESİNDE';
+    }
+};
 
 const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = false, user }) => {
     const [formData, setFormData] = useState({});
@@ -23,22 +36,17 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
 
 
     useEffect(() => {
-        const getContractType = (urlType) => {
-            switch (urlType) {
-                case 'suresinde': return 'SÜRESİNDE';
-                case 'sure-sonrasi': return 'SÜRE SONRASI';
-                case 'feshedilen': return 'FESİH';
-                case 'kdv-iade': return 'KDV İADESİ';
-                case 'hizmet': return 'HİZMET SÖZLEŞMELERİ';
-                case 'diger': return 'DİĞER';
-                default: return 'SÜRESİNDE';
-            }
-        };
+
 
         const defaultType = getContractType(type);
 
         if (initialData) {
-            setFormData(initialData);
+            setFormData({
+                ...initialData,
+                FirmaninUnvani: initialData.FirmaninUnvani || initialData.KarsiSirketAdi,
+                FirmaninVergiNumarasi: initialData.FirmaninVergiNumarasi || initialData.KarsiSirketVergiKimlikNo,
+                FirmaninVergiDairesi: initialData.FirmaninVergiDairesi || initialData.UtVergiDairesi
+            });
             // If data has calculation results, show them
             if (initialData.UtKararlastirilanUcret !== undefined && initialData.UtKararlastirilanUcret !== null) {
                 setCalcResult({
@@ -68,7 +76,7 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                 Mahiyet: '12 - TAM TASDİK',
                 SozlesmeUcreti: 0,
                 SozlesmeTarihi: new Date().toISOString().split('T')[0],
-                SozlesmeTuru: defaultType,
+                SozlesmeTuru: defaultType === 'DİĞER' ? '' : defaultType,
                 Yil: new Date().getFullYear(),
                 // Fee Determination Defaults
                 UtVergiTuru: UtVergiTuru.KurumlarVergisi,
@@ -113,10 +121,29 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
             }
         }
 
+        // General Info Validation (All contract types)
+        if (!formData.FirmaninUnvani || formData.FirmaninUnvani.length < 5) {
+            alert("Lütfen 'Sözleşme Yapılan Firma Ünvanı' alanına en az 5 karakter giriniz.");
+            return;
+        }
+        if (!formData.FirmaninVergiDairesi || formData.FirmaninVergiDairesi.length < 5) {
+            alert("Lütfen 'Vergi Dairesi' alanına en az 5 karakter giriniz.");
+            return;
+        }
+        if (!formData.FirmaninVergiNumarasi || formData.FirmaninVergiNumarasi.length < 5) {
+            alert("Lütfen 'Vergi Numarası' alanına en az 5 karakter giriniz.");
+            return;
+        }
+
         // City Validation
         if (showFeeDetermination && !formData.UtIlKodu) {
             alert("Lütfen 'Bulunduğu İl' seçimi yapınız.");
             return;
+        }
+
+        // Other Contract Type Validation
+        if (getContractType(type) === 'DİĞER' && !formData.SozlesmeTuru) {
+            alert("Lütfen 'Sözleşme Türü' seçimi yapınız.");
             return;
         }
 
@@ -262,6 +289,8 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Sözleşme Yapılan Firma Ünvanı</label>
                                             <input
                                                 type="text" name="FirmaninUnvani"
+                                                minLength="5"
+                                                required
                                                 disabled={readOnly}
                                                 value={formData.FirmaninUnvani || ''} onChange={handleChange}
                                                 className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-500"
@@ -328,7 +357,7 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Sözleşme Tarihi</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Sözleşme Yapılış Tarihi</label>
                                             <input
                                                 type="date" name="SozlesmeTarihi"
                                                 disabled={readOnly}
@@ -337,7 +366,7 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Başlangıç Tarihi</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Sözleşme Başlangıç Tarihi</label>
                                             <input
                                                 type="date" name="SozlesmeBaslangicTarihi"
                                                 disabled={readOnly}
@@ -346,16 +375,35 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                                             />
                                         </div>
 
-                                        {/* KDV İadesi Bitiş Tarihi */}
-                                        {formData.SozlesmeTuru === 'KDV İADESİ' && (
+                                        {/* Sözleşme Bitiş Tarihi - KDV İadesi, Fesih, Hizmet ve Diğer için */}
+                                        {(['KDV İADESİ', 'FESİH', 'HİZMET SÖZLEŞMELERİ'].includes(getContractType(type)) || getContractType(type) === 'DİĞER' || DigerSozlesmeTurleri.includes(formData.SozlesmeTuru)) && (
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Sözleşme Bitiş Tarihi</label>
                                                 <input
                                                     type="date" name="SozlesmeBitisTarihi"
                                                     disabled={readOnly}
                                                     value={formData.SozlesmeBitisTarihi ? formData.SozlesmeBitisTarihi.split('T')[0] : ''} onChange={handleChange}
                                                     className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-100 disabled:text-gray-500"
                                                 />
+                                            </div>
+                                        )}
+
+                                        {/* Diğer Sözleşmeler için Sözleşme Türü Seçimi */}
+                                        {getContractType(type) === 'DİĞER' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Sözleşme Türü</label>
+                                                <select
+                                                    name="SozlesmeTuru"
+                                                    disabled={readOnly}
+                                                    value={formData.SozlesmeTuru || ''}
+                                                    onChange={handleChange}
+                                                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white disabled:bg-gray-100 disabled:text-gray-500"
+                                                >
+                                                    <option value="">Seçiniz</option>
+                                                    {DigerSozlesmeTurleri.map((tur) => (
+                                                        <option key={tur} value={tur}>{tur}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         )}
 
@@ -375,7 +423,7 @@ const ContractModal = ({ isOpen, onClose, onSave, initialData, type, readOnly = 
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Karşı Şirket Adı *</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Sözleşme Yapılan Firma Ünvanı *</label>
                                         <input
                                             type="text" name="KarsiSirketAdi" required
                                             disabled={readOnly}

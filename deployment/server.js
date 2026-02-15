@@ -199,7 +199,7 @@ app.get('/api/sozlesmeler', async (req, res) => {
         } else if (type === 'hizmet') {
             whereClause += " AND SozlesmeTuru LIKE N'%HİZMET%'";
         } else if (type === 'diger') {
-            whereClause += " AND SozlesmeTuru LIKE N'%DİĞER%'";
+            whereClause += " AND (SozlesmeTuru NOT IN (N'SÜRESİNDE', N'FESİH', N'FESHEDİLEN') AND SozlesmeTuru NOT LIKE N'%SONRASI%' AND SozlesmeTuru NOT LIKE N'%KDV İADE%' AND SozlesmeTuru NOT LIKE N'%HİZMET%')";
         }
 
         // Year Filter
@@ -229,8 +229,8 @@ app.get('/api/sozlesmeler', async (req, res) => {
                 UtMatrah, UtIndirimeEsasUcret, UtYoreIndirimi, UtHesaplananUcret,
                 UtFaaliyetTuruZammi, UtSmVeyaSmmmIndirimi, UtGrupSirketleriIndirimi, UtKararlastirilanUcret,
                 UtFirmaUnvan, UtAdres, UtVergiDairesi, UtVergiNo, UtMuhSorumluAdSoyad, UtMuhSorumluRuhsatNo,
-                UtSektorIndirimi, UtSozlesmeHesaplamaDurumu,
-                Id
+                UtSektorIndirimi, UtSozlesmeHesaplamaDurumu, UtGrupSirketUnvan, UtGrupSirketVergiNo,
+                Id, CreatedAt, CreatedBy
             FROM dbo.Sozlesme
             ${whereClause}
             ORDER BY Id DESC
@@ -313,7 +313,7 @@ app.post('/api/sozlesmeler', async (req, res) => {
             'UtMatrah', 'UtIndirimeEsasUcret', 'UtYoreIndirimi', 'UtHesaplananUcret',
             'UtFaaliyetTuruZammi', 'UtSmVeyaSmmmIndirimi', 'UtGrupSirketleriIndirimi', 'UtKararlastirilanUcret',
             'UtFirmaUnvan', 'UtAdres', 'UtVergiDairesi', 'UtVergiNo', 'UtMuhSorumluAdSoyad', 'UtMuhSorumluRuhsatNo',
-            'UtSektorIndirimi', 'UtSozlesmeHesaplamaDurumu'
+            'UtSektorIndirimi', 'UtSozlesmeHesaplamaDurumu', 'UtGrupSirketUnvan', 'UtGrupSirketVergiNo'
         ];
 
         let columns = ['UyeId', 'CreatedAt', 'CreatedBy'];
@@ -366,10 +366,7 @@ app.put('/api/sozlesmeler/:id', async (req, res) => {
     const { UyeId, ...data } = req.body;
     console.log('Updating contract:', id);
 
-    // YIL CALCULATION
-    if (data.SozlesmeTarihi) {
-        data.Yil = new Date(data.SozlesmeTarihi).getFullYear();
-    }
+
 
     try {
         const pool = await connectToDb();
@@ -415,7 +412,7 @@ app.put('/api/sozlesmeler/:id', async (req, res) => {
             'UtMatrah', 'UtIndirimeEsasUcret', 'UtYoreIndirimi', 'UtHesaplananUcret',
             'UtFaaliyetTuruZammi', 'UtSmVeyaSmmmIndirimi', 'UtGrupSirketleriIndirimi', 'UtKararlastirilanUcret',
             'UtFirmaUnvan', 'UtAdres', 'UtVergiDairesi', 'UtVergiNo', 'UtMuhSorumluAdSoyad', 'UtMuhSorumluRuhsatNo',
-            'UtSektorIndirimi', 'UtSozlesmeHesaplamaDurumu'
+            'UtSektorIndirimi', 'UtSozlesmeHesaplamaDurumu', 'UtGrupSirketUnvan', 'UtGrupSirketVergiNo'
         ];
 
         fields.forEach(field => {
@@ -513,6 +510,194 @@ app.get('/api/debug/audit', async (req, res) => {
         res.json(result.recordset);
     } catch (err) {
         res.status(500).json(err);
+    }
+});
+
+// ADMIN LOGIN (dbo.Kullanici)
+app.post('/api/admin/login', async (req, res) => {
+    const { username, password } = req.body;
+    console.log('--- Admin Login Request ---', username);
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'Kullanıcı adı ve şifre gereklidir.' });
+    }
+
+    try {
+        const pool = await connectToDb();
+        const result = await pool.request()
+            .input('username', sql.NVarChar, username)
+            .input('password', sql.NVarChar, password)
+            .query('SELECT * FROM dbo.Kullanici WHERE KullaniciAdi = @username AND Sifre = @password');
+
+        if (result.recordset.length > 0) {
+            const user = result.recordset[0];
+            console.log('Admin User found:', user.KullaniciAdi);
+            const { Sifre, ...userWithoutPassword } = user;
+            res.json({ success: true, message: 'Giriş başarılı', user: userWithoutPassword });
+        } else {
+            console.log('Invalid admin credentials.');
+            res.status(401).json({ success: false, message: 'Geçersiz kullanıcı adı veya şifre' });
+        }
+    } catch (err) {
+        console.error('Admin Login Error:', err);
+        res.status(500).json({ success: false, message: 'Sunucu hatası: ' + err.message });
+    }
+});
+
+// ADMIN REPORTS
+app.get('/api/admin/reports', async (req, res) => {
+    try {
+        const pool = await connectToDb();
+
+        // 1. Total Contracts
+        const totalResult = await pool.request().query('SELECT COUNT(*) as total FROM dbo.Sozlesme');
+        const totalContracts = totalResult.recordset[0].total;
+
+        // 2. Contracts by Type
+        const byTypeResult = await pool.request().query(`
+            SELECT SozlesmeTuru, COUNT(*) as count 
+            FROM dbo.Sozlesme 
+            GROUP BY SozlesmeTuru 
+            ORDER BY count DESC
+        `);
+
+        // 3. Contracts by Year
+        const byYearResult = await pool.request().query(`
+            SELECT Yil, COUNT(*) as count 
+            FROM dbo.Sozlesme 
+            GROUP BY Yil 
+            ORDER BY Yil DESC
+        `);
+
+        // 4. Recent Contracts
+        const recentResult = await pool.request().query(`
+            SELECT TOP 10 
+                Id, FirmaninUnvani, SozlesmeTuru, SozlesmeUcreti, CreatedAt 
+            FROM dbo.Sozlesme 
+            ORDER BY CreatedAt DESC
+        `);
+
+        res.json({
+            success: true,
+            stats: {
+                totalContracts,
+                byType: byTypeResult.recordset,
+                byYear: byYearResult.recordset,
+                recent: recentResult.recordset
+            }
+        });
+
+    } catch (err) {
+        console.error('Admin Reports Error:', err);
+        res.status(500).json({ success: false, message: 'Rapor hatası: ' + err.message });
+    }
+});
+
+// ADMIN DETAILED REPORTS (FILTER)
+app.post('/api/admin/reports/detailed', async (req, res) => {
+    const { startDate, endDate, contractType, page = 1, limit = 20 } = req.body;
+    console.log('Detailed Report Request:', { startDate, endDate, contractType, page, limit });
+
+    try {
+        const pool = await connectToDb();
+        const request = pool.request();
+
+        let whereClause = "WHERE 1=1";
+
+        if (startDate) {
+            whereClause += " AND SozlesmeTarihi >= @startDate";
+            request.input('startDate', sql.Date, startDate);
+        }
+
+        if (endDate) {
+            whereClause += " AND SozlesmeTarihi <= @endDate";
+            request.input('endDate', sql.Date, endDate);
+        }
+
+        if (contractType && contractType !== 'HEPSİ') {
+            whereClause += " AND SozlesmeTuru = @contractType";
+            request.input('contractType', sql.NVarChar, contractType);
+        }
+
+        // 1. Get Total Count
+        const countQuery = `SELECT COUNT(*) as total FROM dbo.Sozlesme ${whereClause}`;
+        const countResult = await request.query(countQuery);
+        const total = countResult.recordset[0].total;
+
+        // 2. Get Paged Data
+        const offset = (page - 1) * limit;
+        request.input('offset', sql.Int, offset);
+        request.input('limit', sql.Int, limit);
+
+        const dataQuery = `
+            SELECT 
+                S.Id, S.FirmaninUnvani, S.SozlesmeTuru, S.SozlesmeUcreti, 
+                S.SozlesmeTarihi, S.SozlesmeBaslangicTarihi, S.SozlesmeBitisTarihi,
+                S.UtFirmaUnvan, S.UtVergiNo, S.CreatedAt,
+                S.OrtakOlduguSirket,
+                U.Ad AS UyeAd, U.Soyad AS UyeSoyad
+            FROM dbo.Sozlesme S
+            LEFT JOIN dbo.Uye U ON S.UyeId = U.Id
+            ${whereClause.replace(/SozlesmeTarihi/g, 'S.SozlesmeTarihi').replace(/SozlesmeTuru/g, 'S.SozlesmeTuru')}
+            ORDER BY S.SozlesmeTarihi DESC
+            OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+        `;
+
+        const result = await request.query(dataQuery);
+
+        res.json({
+            success: true,
+            data: result.recordset,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (err) {
+        console.error('Detailed Report Error:', err);
+        res.status(500).json({ success: false, message: 'Rapor hatası: ' + err.message });
+    }
+});
+
+// ADMIN REPORT: Low Fee Contracts (Yeni)
+app.get('/api/admin/reports/low-fees', async (req, res) => {
+    try {
+        const pool = await connectToDb();
+        const request = pool.request();
+
+        // Active Year (Current Year)
+        const currentYear = new Date().getFullYear();
+        request.input('yil', sql.Int, currentYear);
+
+        const query = `
+            SELECT 
+                S.Id, S.FirmaninUnvani, S.SozlesmeTuru, S.SozlesmeUcreti, 
+                S.SozlesmeTarihi, S.SozlesmeBaslangicTarihi, S.SozlesmeBitisTarihi,
+                S.UtFirmaUnvan, S.UtVergiNo, S.CreatedAt,
+                S.OrtakOlduguSirket, S.UtKararlastirilanUcret,
+                U.Ad AS UyeAd, U.Soyad AS UyeSoyad
+            FROM dbo.Sozlesme S
+            LEFT JOIN dbo.Uye U ON S.UyeId = U.Id
+            WHERE S.Yil = @yil
+              AND (S.SozlesmeTuru = N'SÜRESİNDE' OR S.SozlesmeTuru = N'SÜRE SONRASI')
+              AND S.SozlesmeUcreti < S.UtKararlastirilanUcret
+            ORDER BY S.SozlesmeTarihi DESC
+        `;
+
+        const result = await request.query(query);
+
+        res.json({
+            success: true,
+            count: result.recordset.length,
+            data: result.recordset
+        });
+
+    } catch (err) {
+        console.error('Low Fees Report Error:', err);
+        res.status(500).json({ success: false, message: 'Rapor hatası: ' + err.message });
     }
 });
 
