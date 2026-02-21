@@ -548,20 +548,29 @@ app.post('/api/admin/login', async (req, res) => {
 app.get('/api/admin/reports', async (req, res) => {
     try {
         const pool = await connectToDb();
+        const request = pool.request();
+        const { year } = req.query;
+
+        let whereClause = '';
+        if (year && year !== 'Tümü' && year !== 'HEPSİ') {
+            whereClause = 'WHERE Yil = @year';
+            request.input('year', sql.Int, parseInt(year));
+        }
 
         // 1. Total Contracts
-        const totalResult = await pool.request().query('SELECT COUNT(*) as total FROM dbo.Sozlesme');
+        const totalResult = await request.query(`SELECT COUNT(*) as total FROM dbo.Sozlesme ${whereClause}`);
         const totalContracts = totalResult.recordset[0].total;
 
         // 2. Contracts by Type
-        const byTypeResult = await pool.request().query(`
+        const byTypeResult = await request.query(`
             SELECT SozlesmeTuru, COUNT(*) as count 
             FROM dbo.Sozlesme 
+            ${whereClause}
             GROUP BY SozlesmeTuru 
             ORDER BY count DESC
         `);
 
-        // 3. Contracts by Year
+        // 3. Contracts by Year (Always full list for dropdowns)
         const byYearResult = await pool.request().query(`
             SELECT Yil, COUNT(*) as count 
             FROM dbo.Sozlesme 
@@ -570,11 +579,14 @@ app.get('/api/admin/reports', async (req, res) => {
         `);
 
         // 4. Recent Contracts
-        const recentResult = await pool.request().query(`
+        const recentResult = await request.query(`
             SELECT TOP 10 
-                Id, FirmaninUnvani, SozlesmeTuru, SozlesmeUcreti, CreatedAt 
-            FROM dbo.Sozlesme 
-            ORDER BY CreatedAt DESC
+                S.Id, S.FirmaninUnvani, S.SozlesmeTuru, S.SozlesmeUcreti, S.CreatedAt,
+                U.Ad AS UyeAd, U.Soyad AS UyeSoyad 
+            FROM dbo.Sozlesme S
+            LEFT JOIN dbo.Uye U ON S.UyeId = U.Id
+            ${whereClause ? whereClause.replace('Yil', 'S.Yil') : ''}
+            ORDER BY S.CreatedAt DESC
         `);
 
         res.json({
@@ -595,7 +607,7 @@ app.get('/api/admin/reports', async (req, res) => {
 
 // ADMIN DETAILED REPORTS (FILTER)
 app.post('/api/admin/reports/detailed', async (req, res) => {
-    const { startDate, endDate, contractType, page = 1, limit = 20 } = req.body;
+    let { startDate, endDate, contractType, page = 1, limit = 20 } = req.body;
     console.log('Detailed Report Request:', { startDate, endDate, contractType, page, limit });
 
     try {
@@ -604,14 +616,22 @@ app.post('/api/admin/reports/detailed', async (req, res) => {
 
         let whereClause = "WHERE 1=1";
 
-        if (startDate) {
-            whereClause += " AND SozlesmeTarihi >= @startDate";
-            request.input('startDate', sql.Date, startDate);
+        if (startDate && startDate !== '' && (!endDate || endDate === '')) {
+            const d = new Date();
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            endDate = d.toISOString().split('T')[0]; // Gets today's date in YYYY-MM-DD format
         }
 
-        if (endDate) {
-            whereClause += " AND SozlesmeTarihi <= @endDate";
-            request.input('endDate', sql.Date, endDate);
+        if (startDate && endDate) {
+            whereClause += " AND CreatedAt BETWEEN @startDate AND @endDate";
+            request.input('startDate', sql.NVarChar, `${startDate}T00:00:00.000`);
+            request.input('endDate', sql.NVarChar, `${endDate}T23:59:59.999`);
+        } else if (startDate) {
+            whereClause += " AND CreatedAt >= @startDate";
+            request.input('startDate', sql.NVarChar, `${startDate}T00:00:00.000`);
+        } else if (endDate) {
+            whereClause += " AND CreatedAt <= @endDate";
+            request.input('endDate', sql.NVarChar, `${endDate}T23:59:59.999`);
         }
 
         if (contractType && contractType !== 'HEPSİ') {
@@ -638,8 +658,8 @@ app.post('/api/admin/reports/detailed', async (req, res) => {
                 U.Ad AS UyeAd, U.Soyad AS UyeSoyad
             FROM dbo.Sozlesme S
             LEFT JOIN dbo.Uye U ON S.UyeId = U.Id
-            ${whereClause.replace(/SozlesmeTarihi/g, 'S.SozlesmeTarihi').replace(/SozlesmeTuru/g, 'S.SozlesmeTuru')}
-            ORDER BY S.SozlesmeTarihi DESC
+            ${whereClause.replace(/CreatedAt/g, 'S.CreatedAt').replace(/SozlesmeTuru/g, 'S.SozlesmeTuru')}
+            ORDER BY S.Id DESC
             OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
         `;
 

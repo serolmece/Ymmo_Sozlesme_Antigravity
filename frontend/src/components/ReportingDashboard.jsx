@@ -46,6 +46,7 @@ const ReportingDashboard = () => {
     const [lowFeeLoading, setLowFeeLoading] = useState(false);
 
     const [activeTab, setActiveTab] = useState('genel');
+    const [genelYil, setGenelYil] = useState('HEPSİ');
 
     useEffect(() => {
         const storedUser = localStorage.getItem('adminUser');
@@ -57,7 +58,7 @@ const ReportingDashboard = () => {
 
         const fetchStats = async () => {
             try {
-                const response = await axios.get('/api/admin/reports');
+                const response = await axios.get('/api/admin/reports', { params: { year: genelYil } });
                 setStats(response.data.stats);
             } catch (err) {
                 console.error("Error fetching stats:", err);
@@ -67,7 +68,7 @@ const ReportingDashboard = () => {
         };
 
         fetchStats();
-    }, [navigate]);
+    }, [navigate, genelYil]);
 
     const fetchFilteredData = async (page = 1) => {
         setFilterLoading(true);
@@ -239,17 +240,32 @@ const ReportingDashboard = () => {
                                 icon={Building}
                                 label="Son Eklenen Firma"
                                 value={stats.recent?.[0]?.FirmaninUnvani || '-'}
-                                subLabel={stats.recent?.[0]?.CreatedAt ? new Date(stats.recent[0].CreatedAt).toLocaleDateString('tr-TR') : ''}
+                                subLabel={stats.recent?.[0]?.CreatedAt ? `${new Date(stats.recent[0].CreatedAt).toLocaleDateString('tr-TR')} ${stats.recent[0].UyeAd ? ` | Ekleyen: ${stats.recent[0].UyeAd} ${stats.recent[0].UyeSoyad}` : ''}` : ''}
                                 color="indigo"
                             />
                         </div>
                         {/* Contracts by Type */}
                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                            <div className="flex items-center space-x-3 mb-6 border-b border-gray-100 pb-4">
-                                <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                                    <List size={20} />
+                            <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                                        <List size={20} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-700">Genel Dağılım</h3>
                                 </div>
-                                <h3 className="text-lg font-bold text-gray-700">Genel Dağılım</h3>
+                                <div className="flex items-center space-x-2">
+                                    <label className="text-sm font-medium text-gray-600">Yıl:</label>
+                                    <select
+                                        value={genelYil}
+                                        onChange={(e) => setGenelYil(e.target.value)}
+                                        className="p-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
+                                    >
+                                        <option value="HEPSİ">Tümü</option>
+                                        {stats.byYear?.map((y, idx) => (
+                                            <option key={idx} value={y.Yil}>{y.Yil}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                                 {stats.byType?.map((item, index) => (
@@ -341,7 +357,7 @@ const ReportingDashboard = () => {
                                         <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
                                             <thead className="bg-gray-50">
                                                 <tr>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tarih</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Eklenme Tarihi</th>
                                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Üye Bilgisi</th>
                                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ortak Şirket</th>
                                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Firma Ünvanı</th>
@@ -355,7 +371,7 @@ const ReportingDashboard = () => {
                                                     filteredResults.map((item) => (
                                                         <tr key={item.Id} className="hover:bg-gray-50">
                                                             <td className="px-4 py-2 text-sm text-gray-600">
-                                                                {item.SozlesmeTarihi ? new Date(item.SozlesmeTarihi).toLocaleDateString('tr-TR') : '-'}
+                                                                {item.CreatedAt ? new Date(item.CreatedAt).toLocaleDateString('tr-TR') : '-'}
                                                             </td>
                                                             <td className="px-4 py-2 text-sm font-medium text-blue-700">
                                                                 {item.UyeAd ? `${item.UyeAd} ${item.UyeSoyad}` : '-'}
