@@ -23,7 +23,7 @@ const GelirVergisiTasdikDilimleri = [
     [214655173, 0.000750],
     [572413795, 0.000375],
     [3005172426, 0.000020],
-    [4293103466, 0.00000150]
+    [Infinity, 0.000015] // Eski hali (Sorun olursa geri alınabilir): [4293103466, 0.000015],
 ];
 
 const KurumlarVergisiTasdikDilimleri = [
@@ -33,7 +33,7 @@ const KurumlarVergisiTasdikDilimleri = [
     [214655173, 0.000750],
     [572413795, 0.000375],
     [3005172426, 0.000020],
-    [4293103466, 0.00000150]
+    [Infinity, 0.000015] // Eski hali (Sorun olursa geri alınabilir): [4293103466, 0.000015]
 ];
 
 const GelirVergisiAsgariBazTutar = 168878;
