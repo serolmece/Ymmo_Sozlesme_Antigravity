@@ -8,7 +8,7 @@ const FaaliyetTuruZamIndirimOranlari = {
     [UtFaaliyetTuru.InsaatTaahut]: 20,
     [UtFaaliyetTuru.EczaDeposu]: -50,
     [UtFaaliyetTuru.TicaretHizmet]: 0,
-    [UtFaaliyetTuru.DovizAlimSatim]: -80,
+    [UtFaaliyetTuru.DovizAlimSatim]: -50,
     [UtFaaliyetTuru.GayriFaal]: -50,
     [UtFaaliyetTuru.Diger]: -50
 };

@@ -378,21 +378,12 @@ app.put('/api/sozlesmeler/:id', async (req, res) => {
             const existing = checkQuery.recordset[0];
 
             const currentYear = new Date().getFullYear();
-            const sozturu = existing.SozlesmeTuru || '';
-            const isKdvIade = sozturu.includes('KDV İADE');
-            const isDiger = !['SÜRESİNDE', 'FESİH', 'FESHEDİLEN'].includes(sozturu) &&
-                !sozturu.includes('SONRASI') &&
-                !sozturu.includes('KDV İADE') &&
-                !sozturu.includes('HİZMET');
+            const isKdvIade = existing.SozlesmeTuru && existing.SozlesmeTuru.includes('KDV İADE');
 
             // 1. Historical Data Lock
             if (isKdvIade) {
                 if (existing.Yil < currentYear - 1) {
                     return res.status(403).json({ success: false, message: 'KDV İade sözleşmelerinde sadece bulunduğumuz yıl ve 1 önceki yıl için değişiklik yapılabilir.' });
-                }
-            } else if (isDiger) {
-                if (existing.Yil < currentYear - 1) {
-                    return res.status(403).json({ success: false, message: 'Diğer sözleşmelerde sadece bulunduğumuz yıl ve 1 önceki yıl için değişiklik yapılabilir.' });
                 }
             } else {
                 if (existing.Yil < currentYear) {

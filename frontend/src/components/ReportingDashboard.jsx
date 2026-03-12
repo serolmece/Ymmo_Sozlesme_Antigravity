@@ -45,6 +45,18 @@ const ReportingDashboard = () => {
     const [lowFeeStats, setLowFeeStats] = useState(null);
     const [lowFeeLoading, setLowFeeLoading] = useState(false);
 
+    const [reportedCounts, setReportedCounts] = useState(null);
+    const [reportedCountsLoading, setReportedCountsLoading] = useState(false);
+    const [reportedCountsYear, setReportedCountsYear] = useState(new Date().getFullYear().toString());
+    const [reportedCountsType, setReportedCountsType] = useState('HEPSİ');
+
+    const [purchasedCounts, setPurchasedCounts] = useState(null);
+    const [purchasedCountsLoading, setPurchasedCountsLoading] = useState(false);
+    const [purchasedCountsStartDate, setPurchasedCountsStartDate] = useState('');
+    const [purchasedCountsEndDate, setPurchasedCountsEndDate] = useState('');
+    const [purchasedCountsType, setPurchasedCountsType] = useState('HEPSİ');
+    const [activeSpecialReport, setActiveSpecialReport] = useState('low-fee');
+
     const [activeTab, setActiveTab] = useState('genel');
     const [genelYil, setGenelYil] = useState('HEPSİ');
 
@@ -161,6 +173,43 @@ const ReportingDashboard = () => {
         }
     };
 
+    const fetchReportedCounts = async () => {
+        setReportedCountsLoading(true);
+        try {
+            const response = await axios.post('/api/admin/reports/reported-counts', {
+                year: reportedCountsYear,
+                contractType: reportedCountsType
+            });
+            if (response.data.success) {
+                setReportedCounts(response.data.data);
+            }
+        } catch (err) {
+            console.error("Reported Counts Error:", err);
+            alert("Rapor alınırken bir hata oluştu.");
+        } finally {
+            setReportedCountsLoading(false);
+        }
+    };
+
+    const fetchPurchasedCounts = async () => {
+        setPurchasedCountsLoading(true);
+        try {
+            const response = await axios.post('/api/admin/reports/purchased-counts', {
+                startDate: purchasedCountsStartDate,
+                endDate: purchasedCountsEndDate,
+                contractType: purchasedCountsType
+            });
+            if (response.data.success) {
+                setPurchasedCounts(response.data.data);
+            }
+        } catch (err) {
+            console.error("Purchased Counts Error:", err);
+            alert("Rapor alınırken bir hata oluştu.");
+        } finally {
+            setPurchasedCountsLoading(false);
+        }
+    };
+
     const handleLowFeeExport = () => {
         if (!lowFeeStats || !lowFeeStats.data || lowFeeStats.data.length === 0) {
             alert("Aktarılacak veri bulunmamaktadır.");
@@ -184,6 +233,72 @@ const ReportingDashboard = () => {
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Dusuk_Ucretli_Rapor");
             XLSX.writeFile(workbook, `Dusuk_Ucretli_Sozlesme_Raporu_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`);
+        } catch (err) {
+            console.error("Export Error:", err);
+            alert("Excel'e aktarılırken hata oluştu.");
+        }
+    };
+
+    const handleReportedCountsExport = () => {
+        if (!reportedCounts || reportedCounts.length === 0) {
+            alert("Aktarılacak veri bulunmamaktadır.");
+            return;
+        }
+
+        try {
+            const dataToExport = reportedCounts.map(item => ({
+                'Üye Bilgisi': `${item.UyeAd} ${item.UyeSoyad}`,
+                'Sözleşme Türü': item.SozlesmeTuru,
+                'Toplam Adet': item.Adet
+            }));
+
+            // Calculate and add Grand Total
+            const genelToplam = reportedCounts.reduce((sum, item) => sum + item.Adet, 0);
+            dataToExport.push({
+                'Üye Bilgisi': 'Genel Toplam',
+                'Sözleşme Türü': '',
+                'Toplam Adet': genelToplam
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Bildirilen_Sozlesmeler");
+            XLSX.writeFile(workbook, `Bildirilen_Sozlesme_Sayilari_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`);
+        } catch (err) {
+            console.error("Export Error:", err);
+            alert("Excel'e aktarılırken hata oluştu.");
+        }
+    };
+
+    const handlePurchasedCountsExport = () => {
+        if (!purchasedCounts || purchasedCounts.length === 0) {
+            alert("Aktarılacak veri bulunmamaktadır.");
+            return;
+        }
+
+        try {
+            const dataToExport = purchasedCounts.map(item => ({
+                'Üye Bilgisi': `${item.UyeAd} ${item.UyeSoyad}`,
+                'Sözleşme Türü': item.SozlesmeTuru,
+                'Alınan Adet': item.Adet,
+                'Bildiren Adet': item.BildirenAdet,
+                'Bildirilen - Alınan Fark': item.BildirenAdet - item.Adet
+            }));
+
+            const genelToplamAlinan = purchasedCounts.reduce((sum, item) => sum + item.Adet, 0);
+            const genelToplamBildiren = purchasedCounts.reduce((sum, item) => sum + item.BildirenAdet, 0);
+            dataToExport.push({
+                'Üye Bilgisi': 'Genel Toplam',
+                'Sözleşme Türü': '',
+                'Alınan Adet': genelToplamAlinan,
+                'Bildiren Adet': genelToplamBildiren,
+                'Bildirilen - Alınan Fark': genelToplamBildiren - genelToplamAlinan
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Alinan_Sozlesmeler");
+            XLSX.writeFile(workbook, `Alinan_Sozlesme_Sayilari_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.xlsx`);
         } catch (err) {
             console.error("Export Error:", err);
             alert("Excel'e aktarılırken hata oluştu.");
@@ -443,17 +558,56 @@ const ReportingDashboard = () => {
 
                         <div className="flex flex-col md:flex-row gap-4">
                             <button
-                                onClick={fetchLowFeeReport}
+                                onClick={() => {
+                                    setActiveSpecialReport('low-fee');
+                                    if (!lowFeeStats) {
+                                        fetchLowFeeReport();
+                                    }
+                                }}
                                 disabled={lowFeeLoading}
-                                className="bg-red-50 text-red-600 hover:bg-red-100 px-6 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2 border border-red-200"
+                                className={`px-4 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2 border ${activeSpecialReport === 'low-fee' ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'}`}
                             >
                                 {lowFeeLoading ? 'Yükleniyor...' : 'Düşük Ücretli Sözleşmeler'}
                             </button>
 
-                            {lowFeeStats && lowFeeStats.data && lowFeeStats.data.length > 0 && (
+                            <button
+                                onClick={() => setActiveSpecialReport('reported')}
+                                className={`px-4 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2 border ${activeSpecialReport === 'reported' ? 'bg-blue-600 text-white border-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200'}`}
+                            >
+                                Bildirilen Sözleşme Sayıları
+                            </button>
+
+                            <button
+                                onClick={() => setActiveSpecialReport('purchased')}
+                                className={`px-4 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2 border ${activeSpecialReport === 'purchased' ? 'bg-purple-600 text-white border-purple-600' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200'}`}
+                            >
+                                Alınan Sözleşme Sayıları
+                            </button>
+
+                            {lowFeeStats && lowFeeStats.data && lowFeeStats.data.length > 0 && activeSpecialReport === 'low-fee' && (
                                 <button
                                     onClick={handleLowFeeExport}
-                                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition"
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-3 rounded-xl flex items-center justify-center gap-2 transition ml-auto"
+                                >
+                                    <FileText size={20} />
+                                    Excel'e Aktar
+                                </button>
+                            )}
+
+                            {reportedCounts && reportedCounts.length > 0 && activeSpecialReport === 'reported' && (
+                                <button
+                                    onClick={handleReportedCountsExport}
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-3 rounded-xl flex items-center justify-center gap-2 transition ml-auto"
+                                >
+                                    <FileText size={20} />
+                                    Excel'e Aktar
+                                </button>
+                            )}
+
+                            {purchasedCounts && purchasedCounts.length > 0 && activeSpecialReport === 'purchased' && (
+                                <button
+                                    onClick={handlePurchasedCountsExport}
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-3 rounded-xl flex items-center justify-center gap-2 transition ml-auto"
                                 >
                                     <FileText size={20} />
                                     Excel'e Aktar
@@ -461,7 +615,7 @@ const ReportingDashboard = () => {
                             )}
                         </div>
 
-                        {lowFeeStats && (
+                        {lowFeeStats && activeSpecialReport === 'low-fee' && (
                             <div className="mt-8 animate-fadeIn">
                                 <div className="flex justify-between items-center mb-4">
                                     <h4 className="font-bold text-gray-700">Düşük Ücretli Sözleşmeler (Kararlaştırılan Ücretin Altında Kalanlar)</h4>
@@ -515,6 +669,217 @@ const ReportingDashboard = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* BİLDİRİLEN SÖZLEŞME SAYILARI */}
+                        {activeSpecialReport === 'reported' && (
+                            <div className="mt-8 animate-fadeIn border-t pt-8 border-gray-100">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                                    <h4 className="font-bold text-gray-700 text-lg">Bildirilen Sözleşme Sayıları</h4>
+
+                                    <div className="flex flex-wrap items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                                        <div className="flex items-center space-x-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Yıl</label>
+                                            <select
+                                                value={reportedCountsYear}
+                                                onChange={(e) => setReportedCountsYear(e.target.value)}
+                                                className="p-2 w-28 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                                            >
+                                                {stats?.byYear?.map((y, idx) => (
+                                                    <option key={idx} value={y.Yil}>{y.Yil}</option>
+                                                ))}
+                                                {(!stats?.byYear?.some(y => y.Yil === parseInt(reportedCountsYear))) && (
+                                                    <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+                                                )}
+                                            </select>
+                                        </div>
+
+                                        <div className="flex items-center space-x-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sözleşme Türü</label>
+                                            <select
+                                                value={reportedCountsType}
+                                                onChange={(e) => setReportedCountsType(e.target.value)}
+                                                className="p-2 w-48 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                                            >
+                                                {['HEPSİ', ...(stats?.byType?.map(t => t.SozlesmeTuru) || [])].map((type, idx) => (
+                                                    <option key={idx} value={type}>{type}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <button
+                                            onClick={fetchReportedCounts}
+                                            disabled={reportedCountsLoading}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition flex items-center justify-center gap-2 shadow-sm"
+                                        >
+                                            {reportedCountsLoading ? 'Yükleniyor...' : 'Sayıları Getir'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {reportedCounts && (
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Üye Bilgisi</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sözleşme Türü</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase text-right">Toplam Adet</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {reportedCounts.map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-blue-50 transition">
+                                                        <td className="px-4 py-3 text-sm font-medium text-blue-700">
+                                                            {item.UyeAd} {item.UyeSoyad}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">
+                                                            {item.SozlesmeTuru}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm font-bold text-gray-800 text-right">
+                                                            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">{item.Adet}</span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {reportedCounts.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan="3" className="px-4 py-6 text-center text-gray-500">
+                                                            Seçilen kriterlere ait bildirim bulunamadı.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                            {reportedCounts.length > 0 && (
+                                                <tfoot className="bg-gray-100">
+                                                    <tr>
+                                                        <td colSpan="2" className="px-4 py-3 text-sm font-bold text-gray-700 text-right">Genel Toplam:</td>
+                                                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                                                            {reportedCounts.reduce((sum, item) => sum + item.Adet, 0)}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            )}
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ALINAN SÖZLEŞME SAYILARI */}
+                        {activeSpecialReport === 'purchased' && (
+                            <div className="mt-8 animate-fadeIn border-t pt-8 border-gray-100">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                                    <h4 className="font-bold text-gray-700 text-lg">Alınan Sözleşme Sayıları</h4>
+
+                                    <div className="flex flex-wrap items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                                        <div className="flex items-center space-x-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Başlangıç</label>
+                                            <input
+                                                type="date"
+                                                value={purchasedCountsStartDate}
+                                                onChange={(e) => setPurchasedCountsStartDate(e.target.value)}
+                                                className="p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center space-x-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Bitiş</label>
+                                            <input
+                                                type="date"
+                                                value={purchasedCountsEndDate}
+                                                onChange={(e) => setPurchasedCountsEndDate(e.target.value)}
+                                                className="p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center space-x-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sözleşme Türü</label>
+                                            <select
+                                                value={purchasedCountsType}
+                                                onChange={(e) => setPurchasedCountsType(e.target.value)}
+                                                className="p-2 w-48 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
+                                            >
+                                                <option value="HEPSİ">HEPSİ</option>
+                                                <option value="35-A  Denetim ve Tasdik Sözleşmesi">35-A  Denetim ve Tasdik Sözleşmesi</option>
+                                                <option value="35-B  Tasdik Sözleşmesi">35-B  Tasdik Sözleşmesi</option>
+                                            </select>
+                                        </div>
+
+                                        <button
+                                            onClick={fetchPurchasedCounts}
+                                            disabled={purchasedCountsLoading}
+                                            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg font-bold transition flex items-center justify-center gap-2 shadow-sm"
+                                        >
+                                            {purchasedCountsLoading ? 'Yükleniyor...' : 'Sayıları Getir'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {purchasedCounts && (
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Üye Bilgisi</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sözleşme Türü</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase text-right">Alınan Adet</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase text-right">Bildiren Adet</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase text-right">Bildirilen - Alınan Fark</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {purchasedCounts.map((item, idx) => {
+                                                    const fark = item.BildirenAdet - item.Adet;
+                                                    return (
+                                                        <tr key={idx} className="hover:bg-purple-50 transition">
+                                                            <td className="px-4 py-3 text-sm font-medium text-purple-700">
+                                                                {item.UyeAd} {item.UyeSoyad}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm text-gray-600">
+                                                                {item.SozlesmeTuru}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm font-bold text-gray-800 text-right">
+                                                                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full">{item.Adet}</span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm font-bold text-gray-800 text-right">
+                                                                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">{item.BildirenAdet}</span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm font-bold text-right">
+                                                                <span className={`px-3 py-1 rounded-full ${fark > 0 ? 'bg-green-100 text-green-800' : fark < 0 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                                    {fark > 0 ? `+${fark}` : fark}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {purchasedCounts.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan="5" className="px-4 py-6 text-center text-gray-500">
+                                                            Seçilen kriterlere ait sözleşme bulunamadı.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                            {purchasedCounts.length > 0 && (
+                                                <tfoot className="bg-gray-100">
+                                                    <tr>
+                                                        <td colSpan="2" className="px-4 py-3 text-sm font-bold text-gray-700 text-right">Genel Toplam:</td>
+                                                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                                                            {purchasedCounts.reduce((sum, item) => sum + item.Adet, 0)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                                                            {purchasedCounts.reduce((sum, item) => sum + item.BildirenAdet, 0)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                                                            {purchasedCounts.reduce((sum, item) => sum + (item.BildirenAdet - item.Adet), 0)}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            )}
+                                        </table>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </motion.div>

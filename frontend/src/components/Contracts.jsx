@@ -144,8 +144,8 @@ const Contracts = () => {
         // Diğer Sözleşmeler Edit Restriction
         if (type === 'diger') {
             const contractYear = contract.Yil || selectedYear;
-            if (contractYear < currentYear) {
-                alert('Geçmiş yıllara ait diğer sözleşmeler düzenlenemez.');
+            if (contractYear < currentYear - 1) {
+                alert('Diğer sözleşmelerde sadece bulunduğumuz yıl ve 1 önceki yıl için düzenleme yapılabilir.');
                 return;
             }
         }

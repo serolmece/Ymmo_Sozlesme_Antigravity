@@ -159,6 +159,7 @@ export const DigerSozlesmeTurleri = [
     "BANKALAR KANUNU",
     "DEVİR,BİRLEŞME,NEVİ DEĞİŞİKLİĞİ",
     "DİĞER",
+    "49 NO'LU TEBLİĞ",
     "DİİB",
     "GÖZETİM KAPSAMINDAKİ ÜRÜNLER",
     "HESAP DURUMU BELGE",
